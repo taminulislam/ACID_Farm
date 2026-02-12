@@ -1,0 +1,63 @@
+# ============================================================
+# I-JEPA Segmentation Pipeline — .gitignore
+# ============================================================
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ---------- Environment ----------
+.env
+*.env
+ijepa_seg/
+venv/
+.venv/
+
+# ---------- Data (too large for git) ----------
+processed/
+unprocessed/
+
+# ---------- Model Checkpoints & Logs ----------
+checkpoints/
+logs/
+runs/
+*.pth
+*.pt
+*.ckpt
+
+# ---------- Output / Predictions ----------
+predictions/
+outputs/
+
+# ---------- IDE ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+
+# ---------- Jupyter ----------
+.ipynb_checkpoints/
+*.ipynb
+
+# ---------- Misc ----------
+*.log
+*.tmp
+
+*.jpeg
+*.png
+*.jpg
+*.mp4
+*.json
+*.csv
+*.txt   

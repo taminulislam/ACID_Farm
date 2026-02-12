@@ -1,0 +1,58 @@
+# ============================================================
+# Segmentation Fine-tuning Configuration
+# ============================================================
+
+# --- Data ---
+data:
+  processed_dir: "processed"
+  image_size: [240, 320]       # H, W
+  crop_size: 224               # square crop for ViT
+  train_split: 0.85
+  num_workers: 4
+
+# --- Model ---
+model:
+  encoder_weights: "checkpoints/ijepa_encoder_best.pth"
+  arch: "vit_small"
+  patch_size: 16
+  embed_dim: 384
+  num_classes: 1                # binary segmentation (cow vs background)
+  decoder_channels: [256, 128, 64]
+
+# --- Training ---
+training:
+  epochs: 100
+  batch_size: 16
+  encoder_lr: 1.0e-5            # lower LR for pretrained encoder
+  decoder_lr: 1.0e-3            # higher LR for decoder
+  weight_decay: 0.01
+  warmup_epochs: 5
+  freeze_encoder_epochs: 10     # freeze encoder for first N epochs
+  
+  # Loss
+  dice_weight: 1.0
+  bce_weight: 1.0
+
+# --- Augmentation ---
+augmentation:
+  horizontal_flip: true
+  vertical_flip: false
+  rotation_limit: 15
+  brightness_limit: 0.2
+  contrast_limit: 0.2
+  gaussian_noise: true
+
+# --- Checkpointing ---
+checkpoint:
+  save_dir: "checkpoints"
+  log_dir: "logs/segmentation"
+
+# --- Early Stopping ---
+early_stopping:
+  patience: 20
+  min_delta: 0.001
+  monitor: "val_iou"
+
+# --- Misc ---
+seed: 42
+device: "cuda"
