@@ -6,6 +6,7 @@
 data:
   processed_dir: "../processed"       # Relative to SAM2_Segmentation/
   unprocessed_dir: "../unprocessed"
+  output_dir: "predictions"            # SAM 2 results saved here (separate from I-JEPA)
   crop_size: 1024                     # SAM expects 1024x1024 input
   original_size: [240, 320]           # Original image dimensions H, W
   num_workers: 4

@@ -188,7 +188,7 @@ def main():
     parser.add_argument("--input", type=str, default=None,
                         help="Input directory (default: from config)")
     parser.add_argument("--output", type=str, default=None,
-                        help="Output directory (default: save inside input)")
+                        help="Output directory (default: predictions/ — separate from I-JEPA)")
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--no_overlay", action="store_true")
     args = parser.parse_args()
@@ -201,6 +201,9 @@ def main():
     
     input_dir = args.input or cfg["data"]["unprocessed_dir"]
     
+    # ALWAYS use a dedicated output directory to avoid overwriting I-JEPA results
+    output_dir = args.output or cfg["data"].get("output_dir", "predictions")
+    
     # Check for fine-tuned decoder
     decoder_path = os.path.join(cfg["checkpoint"]["save_dir"], "sam2_mask_decoder_best.pth")
     if not os.path.exists(decoder_path):
@@ -211,7 +214,9 @@ def main():
     logger.info("=" * 60)
     logger.info("SAM 2 Segmentation Inference")
     logger.info("=" * 60)
-    logger.info(f"Input: {input_dir}")
+    logger.info(f"Input:  {input_dir}")
+    logger.info(f"Output: {output_dir}")
+    logger.info("(Results are saved separately — will NOT overwrite I-JEPA outputs)")
     
     # Load model
     sam2_model = load_sam2_model(cfg, device)
@@ -242,13 +247,9 @@ def main():
         if not image_paths:
             continue
         
-        # Output dirs
-        if args.output:
-            mask_dir = os.path.join(args.output, seq_name, "masks")
-            overlay_dir = os.path.join(args.output, seq_name, "overlays")
-        else:
-            mask_dir = os.path.join(seq_dir, "masks")
-            overlay_dir = os.path.join(seq_dir, "overlays")
+        # Output dirs — ALWAYS separate from input
+        mask_dir = os.path.join(output_dir, seq_name, "masks")
+        overlay_dir = os.path.join(output_dir, seq_name, "overlays")
         
         os.makedirs(mask_dir, exist_ok=True)
         if not args.no_overlay:
@@ -277,10 +278,7 @@ def main():
     
     logger.info("=" * 60)
     logger.info(f"Done! Processed {total_processed} images from {len(seq_dirs)} sequences")
-    if args.output:
-        logger.info(f"Results saved to: {args.output}/")
-    else:
-        logger.info("Results saved alongside input images (masks/ and overlays/)")
+    logger.info(f"Results saved to: {output_dir}/")
     logger.info("=" * 60)
 
 
