@@ -31,7 +31,7 @@ masking:
 
 # --- Training ---
 training:
-  epochs: 300
+  epochs: 150
   batch_size: 64
   base_lr: 1.5e-4
   weight_decay: 0.05
@@ -47,7 +47,7 @@ training:
 # --- Checkpointing ---
 checkpoint:
   save_dir: "checkpoints"
-  save_every: 50               # save every N epochs
+  save_every: 5                # save every N epochs
   log_dir: "logs/pretrain"
 
 # --- Misc ---

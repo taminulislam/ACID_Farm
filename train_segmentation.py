@@ -265,7 +265,7 @@ def main():
         writer.add_scalar("val/accuracy", val_metrics["accuracy"], epoch)
         writer.add_scalar("lr", lr, epoch)
 
-        # Save best model
+        # Save checkpoint
         is_best = val_metrics["iou"] > best_iou
         if is_best:
             best_iou = val_metrics["iou"]
@@ -278,7 +278,15 @@ def main():
             "best_metric": best_iou,
             "config": cfg,
         }
+        
+        # Always save latest checkpoint (overwrites)
         save_checkpoint(state, save_dir, "seg_checkpoint.pth", is_best=is_best)
+
+        # Save numbered checkpoint every 5 epochs
+        if (epoch + 1) % 5 == 0:
+            fname = f"seg_checkpoint_epoch{epoch+1}.pth"
+            save_checkpoint(state, save_dir, fname, is_best=False)
+            logger.info(f"  Saved checkpoint: {fname}")
 
         if is_best:
             # Also save just the model for easy loading

@@ -222,7 +222,7 @@ def main():
         )
         writer.add_scalar("pretrain/epoch_loss", avg_loss, epoch)
 
-        # Save checkpoint
+        # Save checkpoint (every save_every epochs, when best, or first epoch)
         is_best = avg_loss < best_loss
         if is_best:
             best_loss = avg_loss
