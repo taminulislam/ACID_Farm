@@ -1,0 +1,13 @@
+# SAM 2 data (handled by parent .gitignore)
+checkpoints/
+logs/
+predictions/
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Environment
+*.egg-info/
+build/
+dist/
