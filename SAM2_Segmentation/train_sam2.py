@@ -298,8 +298,19 @@ def main():
     patience_counter = 0
     
     # ---- Helper: forward pass through SAM 2 ----
+    # Spatial sizes for backbone feature pyramid (matching SAM2ImagePredictor)
+    _bb_feat_sizes = [
+        (256, 256),
+        (128, 128),
+        (64, 64),
+    ]
+    
     def forward_sam2(batch, training=True):
-        """Run SAM 2 forward pass with prompts."""
+        """Run SAM 2 forward pass with prompts.
+        
+        Follows the exact same feature extraction as SAM2ImagePredictor.set_image()
+        and SAM2ImagePredictor._predict().
+        """
         images = batch["image"].to(device)  # (B, 3, 1024, 1024)
         gt_masks = batch["mask"].to(device)  # (B, 1, 1024, 1024)
         points = batch["points"].to(device)  # (B, N, 2)
@@ -311,58 +322,55 @@ def main():
         all_pred_ious = []
         
         for i in range(B):
-            # Encode image
-            with torch.set_grad_enabled(not freeze_encoder or not training):
-                sam2_model._is_image_set = False
+            # ---- Step 1: Encode image (same as SAM2ImagePredictor.set_image) ----
+            with torch.set_grad_enabled(
+                training and (not freeze_encoder or encoder_unfrozen)
+            ):
                 backbone_out = sam2_model.forward_image(images[i:i+1])
-                
-                # Get features from backbone
-                _, vision_feats, _, _ = sam2_model._prepare_backbone_features(backbone_out)
-                
-                # Adjust feature dimensions if needed
+                _, vision_feats, _, _ = sam2_model._prepare_backbone_features(
+                    backbone_out
+                )
+                # Add no_mem_embed to lowest-res feature map
                 if sam2_model.directly_add_no_mem_embed:
                     vision_feats[-1] = vision_feats[-1] + sam2_model.no_mem_embed
                 
-                # Prepare high-res feature maps
+                # Reshape (HW, B, C) -> (B, C, H, W) for each feature level
                 feats = [
                     feat.permute(1, 2, 0).view(1, -1, *feat_size)
                     for feat, feat_size in zip(
-                        vision_feats[::-1],
-                        sam2_model._bb_feat_sizes[::-1],
+                        vision_feats[::-1], _bb_feat_sizes[::-1]
                     )
                 ][::-1]
                 
-                # Build the feature dict expected by _forward_sam_heads
-                # high_res_features are the features from earlier stages
-                high_res_features = [feats[-2], feats[-1]]
+                # feats[0] = (1, 32, 256, 256) high-res
+                # feats[1] = (1, 64, 128, 128) mid-res
+                # feats[2] = (1, 256,  64,  64) image embedding
+                image_embed = feats[-1]           # (1, 256, 64, 64)
+                high_res_features = feats[:-1]    # [(1, 32, 256, 256), (1, 64, 128, 128)]
             
-            # Encode prompts
-            point_coords = points[i:i+1]  # (1, N, 2)
-            point_labs = point_labels[i:i+1]  # (1, N)
+            # ---- Step 2: Build prompts (same as SAM2ImagePredictor._predict) ----
+            point_coords_i = points[i:i+1]        # (1, N, 2)
+            point_labs_i = point_labels[i:i+1]     # (1, N)
             
-            # Optionally add box prompt
+            # Merge box prompt as 2 corner points with labels [2, 3]
             if "box" in batch:
-                box = batch["box"][i:i+1].to(device)  # (1, 4)
-                # Convert box to 2 corner points
-                box_points = torch.stack([
-                    box[:, :2],  # top-left
-                    box[:, 2:],  # bottom-right
-                ], dim=1)  # (1, 2, 2)
-                box_labels = torch.tensor([[2, 3]], device=device)  # SAM box labels
-                
-                point_coords = torch.cat([point_coords, box_points], dim=1)
-                point_labs = torch.cat([point_labs, box_labels], dim=1)
+                box = batch["box"][i:i+1].to(device)  # (1, 4) xyxy
+                box_coords = box.reshape(-1, 2, 2)     # (1, 2, 2)
+                box_labs = torch.tensor([[2, 3]], dtype=torch.int32, device=device)
+                # Boxes go first, then points (SAM convention)
+                point_coords_i = torch.cat([box_coords, point_coords_i], dim=1)
+                point_labs_i = torch.cat([box_labs, point_labs_i], dim=1)
             
             # Run prompt encoder
             sparse_embeddings, dense_embeddings = sam2_model.sam_prompt_encoder(
-                points=(point_coords, point_labs),
+                points=(point_coords_i, point_labs_i),
                 boxes=None,
                 masks=None,
             )
             
-            # Run mask decoder
+            # ---- Step 3: Run mask decoder ----
             low_res_masks, iou_predictions, _, _ = sam2_model.sam_mask_decoder(
-                image_embeddings=feats[0],
+                image_embeddings=image_embed,
                 image_pe=sam2_model.sam_prompt_encoder.get_dense_pe(),
                 sparse_prompt_embeddings=sparse_embeddings,
                 dense_prompt_embeddings=dense_embeddings,
@@ -371,9 +379,9 @@ def main():
                 high_res_features=high_res_features,
             )
             
-            # Upscale masks to input size
+            # Upscale masks to input size (1024x1024)
             pred_mask = F.interpolate(
-                low_res_masks, (1024, 1024),
+                low_res_masks.float(), (1024, 1024),
                 mode="bilinear", align_corners=False,
             )
             

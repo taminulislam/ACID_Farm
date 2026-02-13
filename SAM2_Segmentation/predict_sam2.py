@@ -78,6 +78,9 @@ def predict_with_auto_prompt(sam2_model, image_np, device, img_size=1024):
     image_tensor = image_tensor.unsqueeze(0).to(device)
     
     with torch.no_grad():
+        # Feature pyramid sizes (matching SAM2ImagePredictor)
+        _bb_feat_sizes = [(256, 256), (128, 128), (64, 64)]
+        
         # Encode image
         backbone_out = sam2_model.forward_image(image_tensor)
         _, vision_feats, _, _ = sam2_model._prepare_backbone_features(backbone_out)
@@ -85,15 +88,16 @@ def predict_with_auto_prompt(sam2_model, image_np, device, img_size=1024):
         if sam2_model.directly_add_no_mem_embed:
             vision_feats[-1] = vision_feats[-1] + sam2_model.no_mem_embed
         
+        # Reshape (HW, B, C) -> (B, C, H, W) for each feature level
         feats = [
             feat.permute(1, 2, 0).view(1, -1, *feat_size)
             for feat, feat_size in zip(
-                vision_feats[::-1],
-                sam2_model._bb_feat_sizes[::-1],
+                vision_feats[::-1], _bb_feat_sizes[::-1]
             )
         ][::-1]
         
-        high_res_features = [feats[-2], feats[-1]]
+        image_embed = feats[-1]           # (1, 256, 64, 64)
+        high_res_features = feats[:-1]    # [(1, 32, 256, 256), (1, 64, 128, 128)]
         
         # Use grid of points as prompts
         grid_points = []
@@ -124,7 +128,7 @@ def predict_with_auto_prompt(sam2_model, image_np, device, img_size=1024):
         
         # Decode mask
         low_res_masks, iou_pred, _, _ = sam2_model.sam_mask_decoder(
-            image_embeddings=feats[0],
+            image_embeddings=image_embed,
             image_pe=sam2_model.sam_prompt_encoder.get_dense_pe(),
             sparse_prompt_embeddings=sparse_emb,
             dense_prompt_embeddings=dense_emb,

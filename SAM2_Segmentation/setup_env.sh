@@ -58,17 +58,18 @@ else
 
     echo ""
     echo "Downloading SAM 2.1 checkpoint (sam2.1_hiera_small)..."
-    mkdir -p "$(dirname "$0")/checkpoints"
-    cd "$(dirname "$0")/checkpoints"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    CKPT_DIR="${SCRIPT_DIR}/checkpoints"
+    mkdir -p "${CKPT_DIR}"
     
     # Download SAM 2.1 Hiera Small checkpoint
-    if [ ! -f "sam2.1_hiera_small.pt" ]; then
-        wget -q --show-progress https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt
-        echo "Downloaded sam2.1_hiera_small.pt"
+    if [ ! -f "${CKPT_DIR}/sam2.1_hiera_small.pt" ]; then
+        wget -q --show-progress -O "${CKPT_DIR}/sam2.1_hiera_small.pt" \
+            https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt
+        echo "Downloaded sam2.1_hiera_small.pt → ${CKPT_DIR}/"
     else
-        echo "Checkpoint already exists: sam2.1_hiera_small.pt"
+        echo "Checkpoint already exists: ${CKPT_DIR}/sam2.1_hiera_small.pt"
     fi
-    cd -
 fi
 
 echo ""

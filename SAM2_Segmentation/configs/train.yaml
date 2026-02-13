@@ -14,7 +14,7 @@ data:
 
 # --- SAM 2 Model ---
 model:
-  model_cfg: "sam2.1/sam2.1_hiera_s.yaml"     # SAM 2.1 Hiera Small
+  model_cfg: "configs/sam2.1/sam2.1_hiera_s.yaml"     # SAM 2.1 Hiera Small
   checkpoint: "checkpoints/sam2.1_hiera_small.pt"
   # Which components to fine-tune
   freeze_image_encoder: true          # Keep encoder frozen (saves memory)
@@ -46,7 +46,7 @@ training:
 # --- Checkpointing ---
 checkpoint:
   save_dir: "checkpoints"
-  save_every: 5
+  save_every: 10
   log_dir: "logs/training"
 
 # --- Early Stopping ---
