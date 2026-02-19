@@ -1,0 +1,85 @@
+# ============================================================
+# V-JEPA 2 Pipeline Configuration
+# ============================================================
+
+# --- Data ---
+data:
+  processed_dir: "../processed"
+  unprocessed_dir: "../unprocessed"
+  image_size: [240, 320]         # H, W (native thermal resolution)
+  crop_size: 224                 # square crop for ViT
+  num_workers: 4
+  output_dir: "predictions"      # separate from I-JEPA / SAM2
+
+  # Video clip settings (for pretraining)
+  clip_length: 16                # number of consecutive frames per clip
+  clip_stride: 4                 # stride between clips during sampling
+  temporal_stride: 1             # stride between frames within a clip
+
+# --- Model (V-JEPA 2 ViT-Large) ---
+model:
+  arch: "vjepa2_vit_large"
+  checkpoint: "checkpoints/vitl.pt"
+  patch_size: 16
+  embed_dim: 1024                # ViT-Large embedding dimension
+  depth: 24                      # ViT-Large depth
+  num_heads: 16                  # ViT-Large heads
+  tubelet_size: 2                # temporal patch size (2 frames per tubelet)
+
+  # Segmentation decoder
+  decoder_channels: [512, 256, 128, 64]
+  num_classes: 1
+
+# --- Pretraining (V-JEPA 2 self-supervised) ---
+pretraining:
+  epochs: 100
+  batch_size: 8                  # smaller due to video clips + large model
+  learning_rate: 1.5e-4
+  weight_decay: 0.05
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  clip_grad: 3.0
+
+  # Masking strategy (spatio-temporal tubes)
+  masking:
+    num_targets: 4
+    target_aspect_ratio: [0.75, 1.5]
+    target_scale: [0.15, 0.2]
+    context_scale: [0.85, 1.0]
+
+  # EMA for target encoder
+  ema:
+    start: 0.996
+    end: 1.0
+
+# --- Segmentation (supervised fine-tuning) ---
+segmentation:
+  epochs: 100
+  batch_size: 16
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  warmup_epochs: 5
+  freeze_encoder: true
+  unfreeze_encoder_epoch: 50     # unfreeze after 50 epochs
+  encoder_unfreeze_lr: 5.0e-6
+  grad_clip: 1.0
+
+  # Loss weights
+  focal_weight: 20.0
+  dice_weight: 1.0
+
+# --- Checkpoint ---
+checkpoint:
+  save_dir: "checkpoints"
+  save_every: 10
+  log_dir_pretrain: "logs/pretrain"
+  log_dir_seg: "logs/segmentation"
+
+# --- Early Stopping ---
+early_stopping:
+  patience: 30
+  min_delta: 0.001
+
+# --- Misc ---
+seed: 42
+device: "cuda"
